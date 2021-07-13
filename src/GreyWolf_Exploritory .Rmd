@@ -1,0 +1,129 @@
+---
+title: "North America: Grey Wolf"
+author: "Elmera Azadpour"
+date: "7/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(sp)
+library(sf)
+library(tmap) 
+library(rnaturalearth)
+library(rnaturalearthdata)
+```
+
+### Read in 'greywolf_GBIF.csv'
+```{r, echo = TRUE, error = FALSE, warning=FALSE, message=FALSE}
+wolf_df <- read.csv(here("data","greywolf_GBIF.csv")) %>% 
+  clean_names() %>% 
+  select(species, 
+         country_code,
+         locality,
+         state_province,
+         decimal_latitude,
+         decimal_longitude,
+         event_date,
+         day,
+         month,
+         year,
+         identified_by)
+```
+
+### need to convert  decimal_latitude and decimal_longitude to numeric values to then be able to convert to coordinates
+```{r}
+wolf_df$decimal_latitude <- as.numeric(wolf_df$decimal_latitude)
+
+wolf_df$decimal_longitude <- as.numeric(wolf_df$decimal_longitude)
+
+# wolf_df <- wolf_df %>%
+  #drop_na()
+```
+
+### spatial wrangling bits 
+```{r}
+wolf_spatial = SpatialPoints(cbind(wolf_df$decimal_longitude, wolf_df$decimal_latitude), proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+st_crs(wolf_spatial)
+
+# then converting it to an sp and data frame
+wolf_spatial_transform = spTransform(wolf_spatial, CRS("+proj=longlat +datum=WGS84")) %>%  as.data.frame()
+
+
+# then cbinding it to the original wolf_df and removing our old "decimal_latitude" & "decimal_longitude" and renaming our new UTM coordinates
+wolf_spatial_latlong<- cbind(wolf_df,wolf_spatial_transform) %>%
+  rename(lat = coords.x1, long = coords.x2) %>%
+  select(-decimal_latitude, -decimal_longitude)
+
+## converting the lat long to crs 4326
+wolf_spatial_cord <- st_as_sf(wolf_spatial_latlong, coords = c("lat", "long"), crs = 4326)
+
+# st_crs(wolf_spatial_cord)
+
+ggplot() +
+  geom_sf(data = wolf_spatial_cord)
+```
+### interactive map 
+```{r}
+# world <- ne_countries(scale = "medium", returnclass = "sf")
+# class(world)
+# st_crs(world)
+# world <- st_transform(world, st_crs(wolf_spatial_cord))
+# ggplot(data = world) +
+  geom_sf(data = wolf_spatial_cord)
+
+tmap_mode("view")
+
+tm_shape(wolf_spatial_cord) + 
+  tm_dots()
+```
+
+## summary stats
+```{r}
+# wolf_df$country_code <- as.character(wolf_df$country_code)
+
+wolf_sum <- wolf_df %>% 
+    group_by(country_code) %>%
+  summarize(n()) %>% 
+  rename(wolf = 'n()')
+
+wolf_sum <- wolf_sum %>%  
+mutate(country_code = fct_reorder(country_code, wolf))
+
+ggplot(data = wolf_sum,
+       aes(x = country_code, 
+           y = wolf)) +
+  geom_bar(stat="identity", fill="#D81313", alpha=.6, width=.4) +
+    coord_flip() +
+  theme_minimal() +
+  labs(y = 'Count of Grey Wolves (Canis lupus) from 1700 to 2021',
+       x = "Country Code")
+
+
+```
+
+## annual comparison
+```{r}
+wolf_count_year_country <- wolf_df %>% 
+    group_by(year, country_code) %>%
+  summarize(n()) %>% 
+  rename(wolf = 'n()') %>% 
+  drop_na() 
+
+ggplot(data = wolf_count_year_country,
+       aes(x = year, 
+           y = wolf,
+           group = country_code)) +
+  geom_line(alpha=.6, width=3, aes(color = country_code))  +
+  theme_minimal() +
+  labs(y = 'Count of Grey Wolves (Canis lupus)',
+       x = "Year (1700 - 2021)") + 
+  scale_color_brewer(palette="Dark2")
+
+
+```
+
