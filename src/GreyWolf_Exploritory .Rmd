@@ -13,8 +13,8 @@ library(janitor)
 library(sp)
 library(sf)
 library(tmap) 
-library(rnaturalearth)
-library(rnaturalearthdata)
+# library(rnaturalearth)
+# library(rnaturalearthdata)
 ```
 
 ### Read in 'greywolf_GBIF.csv'
@@ -46,7 +46,7 @@ wolf_df$decimal_longitude <- as.numeric(wolf_df$decimal_longitude)
 
 ### spatial wrangling bits 
 ```{r}
-wolf_spatial = SpatialPoints(cbind(wolf_df$decimal_longitude, wolf_df$decimal_latitude), proj4string=CRS("+proj=longlat +datum=WGS84"))
+wolf_spatial = SpatialPoints(cbind(wolf_df$decimal_longitude, wolf_df$decimal_latitude), proj4string=CRS("+proj=longlat +datum=WGS84")) 
 
 st_crs(wolf_spatial)
 
@@ -74,7 +74,7 @@ ggplot() +
 # st_crs(world)
 # world <- st_transform(world, st_crs(wolf_spatial_cord))
 # ggplot(data = world) +
-  geom_sf(data = wolf_spatial_cord)
+  # geom_sf(data = wolf_spatial_cord)
 
 tmap_mode("view")
 
@@ -93,6 +93,7 @@ wolf_sum <- wolf_df %>%
 
 wolf_sum <- wolf_sum %>%  
 mutate(country_code = fct_reorder(country_code, wolf))
+
 
 ggplot(data = wolf_sum,
        aes(x = country_code, 
